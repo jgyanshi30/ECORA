@@ -1,5 +1,5 @@
-````markdown
 # 🌍 ECORA
+
 ### Eco Cleanliness Observation & Real-time Analytics
 
 > AI-Powered Urban Environmental Intelligence Platform
@@ -12,11 +12,11 @@ Urban waste monitoring remains largely reactive and manual.
 
 Municipal authorities often depend on periodic inspections and citizen complaints to identify waste accumulation, illegal dumping, and environmental hotspots. This leads to:
 
-- Delayed cleanup operations
-- Poor resource allocation
-- Limited city-wide visibility
-- Lack of predictive planning
-- Growing environmental risks
+* Delayed cleanup operations
+* Poor resource allocation
+* Limited city-wide visibility
+* Lack of predictive planning
+* Growing environmental risks
 
 Cities need a scalable and intelligent approach to monitor cleanliness in real time.
 
@@ -30,11 +30,11 @@ Using computer vision and environmental intelligence, ECORA automatically detect
 
 The platform combines:
 
-- AI-powered waste detection
-- Hotspot intelligence
-- Predictive environmental analytics
-- Citizen participation and rewards
-- Smart city decision support
+* AI-powered waste detection
+* Hotspot intelligence
+* Predictive environmental analytics
+* Citizen participation and rewards
+* Smart city decision support
 
 ---
 
@@ -44,29 +44,21 @@ ECORA utilizes a custom-trained **YOLOv11 Computer Vision Model** for waste dete
 
 The model is capable of identifying:
 
-- Plastic Waste
-- Garbage Clusters
-- Roadside Litter
-- Illegal Dumping Zones
-- Environmental Cleanliness Indicators
+* Plastic Waste
+* Garbage Clusters
+* Roadside Litter
+* Illegal Dumping Zones
+* Environmental Cleanliness Indicators
 
 ### AI Pipeline
 
-```text
 Dashcam Footage
-      ↓
-YOLOv11 Detection
-      ↓
-Geo-tagging
-      ↓
-Environmental Intelligence Layer
-      ↓
-Hotspot Analysis
-      ↓
-Predictive Analytics
-      ↓
-Municipal Dashboard
-````
+→ YOLOv11 Detection
+→ Geo-tagging
+→ Environmental Intelligence Layer
+→ Hotspot Analysis
+→ Predictive Analytics
+→ Municipal Dashboard
 
 ---
 
@@ -96,23 +88,23 @@ Encourages community participation through gamified environmental reporting.
 
 ## 📊 Core Features
 
-### ♻️ Real-Time Waste Detection
+### Real-Time Waste Detection
 
 Automated garbage detection from vehicle-mounted cameras.
 
-### 📍 Hotspot Identification
+### Hotspot Identification
 
 Detection clustering and environmental risk mapping.
 
-### 📈 Predictive Intelligence
+### Predictive Intelligence
 
 Forecasting waste accumulation before it becomes critical.
 
-### 🏛 Municipal Dashboard
+### Municipal Dashboard
 
 Actionable environmental intelligence for decision-makers.
 
-### 🏆 Citizen Participation
+### Citizen Participation
 
 Community reporting and eco-reward ecosystem.
 
@@ -150,15 +142,10 @@ Most waste-monitoring solutions stop at detection.
 
 ECORA goes beyond detection by creating a complete environmental intelligence pipeline:
 
-```text
 Detection
-   ↓
-Intelligence
-   ↓
-Prediction
-   ↓
-Action
-```
+→ Intelligence
+→ Prediction
+→ Action
 
 This transforms raw observations into strategic municipal insights.
 
@@ -293,5 +280,3 @@ All project architecture, problem framing, AI workflow design, model development
 
 AI tools were used as productivity accelerators and development assistants, while final engineering decisions, system design, and project ownership remain with the authors.
 
-```
-```
