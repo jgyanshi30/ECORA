@@ -41,11 +41,11 @@ type SystemEvent = {
   type: EventType
   severity: Severity
   timestamp: number
-  city: City
+  city: string
   confidence: number
-  // normalized coords (0-100) for the mock map
-  x: number
-  y: number
+
+  x?: number
+  y?: number
 }
 
 const CITIES: City[] = ["Jaipur", "Jodhpur", "Udaipur", "Ajmer", "Kota"]

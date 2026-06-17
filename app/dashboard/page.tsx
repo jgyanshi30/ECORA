@@ -45,10 +45,10 @@ type SystemEvent = {
   type: EventType
   severity: Severity
   timestamp: number
-  city: City
+  city: string
   confidence: number
-  x: number
-  y: number
+  x?: number
+  y?: number
 }
 
 const CITIES: City[] = ["Jaipur", "Jodhpur", "Udaipur", "Ajmer", "Kota"]
@@ -95,9 +95,10 @@ function useSimulationEngine(maxEvents = 60) {
   useEffect(() => {
     // Load previous memory on startup
     const memory = getMemory()
-    if (memory.events.length > 0) {
-      setEvents(memory.events.slice(0, maxEvents))
-    } else {
+
+if (memory.length > 0) {
+  setEvents(memory.slice(0, maxEvents))
+} else {
       setEvents(Array.from({ length: 8 }, generateEvent))
     }
 
@@ -378,7 +379,7 @@ useEffect(() => {
 }
 
 function pickStableCity(events: SystemEvent[], offset: number): City {
-  return events[offset]?.city ?? CITIES[offset % CITIES.length]
+  return (events[offset]?.city as City) ?? CITIES[offset % CITIES.length]
 }
 
 function trendFromEvents(events: SystemEvent[], type: EventType): number[] {
