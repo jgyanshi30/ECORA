@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Building2, ShieldCheck, User, ArrowRight, Lock } from "lucide-react"
 
@@ -10,11 +10,22 @@ export default function AuthPage() {
   const router = useRouter()
   const [role, setRole] = useState<Role>("citizen")
   const [pending, setPending] = useState(false)
+  useEffect(() => {
+  const savedRole = localStorage.getItem("ecora_role") as Role | null
+  if (savedRole) {
+    setRole(savedRole)
+  }
+}, [])
 
   function handleContinue() {
     setPending(true)
     const target = role === "citizen" ? "/citizen" : "/dashboard"
-    setTimeout(() => router.push(target), 600)
+
+localStorage.setItem("ecora_role", role)
+
+setTimeout(() => {
+  router.push(target)
+}, 600)
   }
 
   return (
@@ -65,15 +76,22 @@ export default function AuthPage() {
           <p className="mt-2 text-sm leading-relaxed text-neutral-400">
             Access real-time urban cleanliness intelligence for your city.
           </p>
-
+          
           {/* google button */}
           <button
-            type="button"
-            className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white px-4 py-3 text-sm font-medium text-neutral-800 transition hover:bg-neutral-100"
-          >
-            <GoogleIcon />
-            Sign in with Google
-          </button>
+           type="button"
+           onClick={() => {
+            setPending(true)
+            setTimeout(() => {
+              setPending(false)
+              router.push(role === "citizen" ? "/citizen" : "/dashboard")
+             }, 1200)
+           }}
+  className="mt-6 flex w-full items-center justify-center gap-3 rounded-xl border border-white/15 bg-white px-4 py-3 text-sm font-medium text-neutral-800 transition hover:bg-neutral-100"
+>
+  <GoogleIcon />
+  {pending ? "Signing in with Google..." : "Sign in with Google"}
+</button>
 
           {/* divider */}
           <div className="my-6 flex items-center gap-3 text-[11px] uppercase tracking-widest text-neutral-500">
@@ -115,6 +133,14 @@ export default function AuthPage() {
           <ShieldCheck className="size-3.5 text-emerald-400/70" />
           Government-grade security · Role-based access
         </p>
+
+        <button
+         type="button"
+         onClick={() => router.push("/")}
+         className="mt-4 flex w-full items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm font-medium text-neutral-300 hover:text-white hover:border-white/20 transition"
+        >
+         ← Back to Landing Page
+        </button>
       </div>
     </main>
   )

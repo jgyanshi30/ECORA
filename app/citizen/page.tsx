@@ -1,6 +1,10 @@
 "use client"
 
+import { generateEvent } from "@/lib/ecora-core"
+import { ecoraMemory } from "@/lib/ecora-memory"
+import { generateReasoning } from "@/lib/ecora-core"
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Activity,
@@ -72,7 +76,18 @@ function makeEvent(): SystemEvent {
 
 function useSimulationEngine(maxEvents = 40) {
   // Start empty so server and client render identically (no Math.random on SSR).
-  const [events, setEvents] = useState<SystemEvent[]>([])
+  const [events, setEvents] = useState<SystemEvent[]>(() => {
+  if (typeof window === "undefined") return []
+
+  const saved = localStorage.getItem("ecora_events")
+  if (!saved) return []
+
+  try {
+    return JSON.parse(saved) as SystemEvent[]
+  } catch {
+    return []
+  }
+})
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -80,10 +95,19 @@ function useSimulationEngine(maxEvents = 40) {
     setEvents(Array.from({ length: 6 }, makeEvent))
 
     function tick() {
-      setEvents((prev) => [makeEvent(), ...prev].slice(0, maxEvents))
-      const delay = 4000 + Math.random() * 2000
-      timer.current = setTimeout(tick, delay)
-    }
+  setEvents((prev) => [makeEvent(), ...prev].slice(0, maxEvents))
+
+  const interval = setInterval(() => {
+  const event = generateEvent()
+
+  setEvents((prev) => [event, ...prev].slice(0, 20))
+}, 4000)
+
+return () => clearInterval(interval)
+
+  const delay = 4000 + Math.random() * 2000
+  timer.current = setTimeout(tick, delay)
+}
     const delay = 4000 + Math.random() * 2000
     timer.current = setTimeout(tick, delay)
     return () => {
@@ -136,6 +160,23 @@ function timeAgo(ts: number) {
 }
 
 export default function CitizenPage() {
+  const router = useRouter()
+
+useEffect(() => {
+  const role = localStorage.getItem("ecora_role")
+
+  if (!role) {
+    router.push("/auth")
+  }
+
+  if (role === "citizen" && window.location.pathname === "/dashboard") {
+    router.push("/citizen")
+  }
+
+  if (role === "admin" && window.location.pathname === "/citizen") {
+    router.push("/dashboard")
+  }
+}, [])
   const events = useSimulationEngine()
   const [reportsSubmitted, setReportsSubmitted] = useState(14)
   const [flash, setFlash] = useState<string | null>(null)

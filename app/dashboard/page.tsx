@@ -1,6 +1,10 @@
 "use client"
 
+import { generateEvent } from "@/lib/ecora-core"
+import { generateReasoning } from "@/lib/ecora-core"
+import { addEventToMemory, getMemory } from "@/lib/ecora-memory"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
   Activity,
@@ -74,19 +78,43 @@ function makeEvent(): SystemEvent {
 }
 
 function useSimulationEngine(maxEvents = 60) {
-  // Start empty so server and client render identically (no Math.random on SSR).
-  const [events, setEvents] = useState<SystemEvent[]>([])
+  const [events, setEvents] = useState<SystemEvent[]>(() => {
+  if (typeof window === "undefined") return []
+
+  const saved = localStorage.getItem("ecora_events")
+  if (!saved) return []
+
+  try {
+    return JSON.parse(saved) as SystemEvent[]
+  } catch {
+    return []
+  }
+})
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // Seed on mount (client-only)
-    setEvents(Array.from({ length: 10 }, makeEvent))
+    // Load previous memory on startup
+    const memory = getMemory()
+    if (memory.events.length > 0) {
+      setEvents(memory.events.slice(0, maxEvents))
+    } else {
+      setEvents(Array.from({ length: 8 }, generateEvent))
+    }
 
     function tick() {
-      setEvents((prev) => [makeEvent(), ...prev].slice(0, maxEvents))
-      timer.current = setTimeout(tick, 4000 + Math.random() * 2000)
+      const newEvent = generateEvent()
+
+      // save to memory
+      addEventToMemory(newEvent)
+
+      // update UI
+      setEvents((prev) => [newEvent, ...prev].slice(0, maxEvents))
+
+      timer.current = setTimeout(tick, 3000 + Math.random() * 2000)
     }
-    timer.current = setTimeout(tick, 4000 + Math.random() * 2000)
+
+    timer.current = setTimeout(tick, 2000)
+
     return () => {
       if (timer.current) clearTimeout(timer.current)
     }
@@ -120,8 +148,34 @@ function timeAgo(ts: number) {
 }
 
 export default function DashboardPage() {
+  const [now, setNow] = useState<number>(Date.now())
+useEffect(() => {
+  const interval = setInterval(() => {
+    setNow(Date.now())
+  }, 1000)
+
+  return () => clearInterval(interval)
+}, [])
+
+  const router = useRouter()
+
+useEffect(() => {
+  const role = localStorage.getItem("ecora_role")
+
+  if (!role) {
+    router.push("/auth")
+  }
+
+  if (role === "citizen" && window.location.pathname === "/dashboard") {
+    router.push("/citizen")
+  }
+
+  if (role === "admin" && window.location.pathname === "/citizen") {
+    router.push("/dashboard")
+  }
+}, [])
   const events = useSimulationEngine()
-  const [now, setNow] = useState(Date.now())
+  
 
   // keep "time ago" labels fresh
   useEffect(() => {
@@ -145,8 +199,8 @@ export default function DashboardPage() {
   return (
     <main className="min-h-screen bg-[#070b0a] text-neutral-200">
       <CommandHeader stats={stats} />
-
-      <div className="mx-auto max-w-[1500px] px-4 py-5" data-now={now}>
+       
+      <div className="mx-auto max-w-[1500px] px-4 py-5">
         <div className="grid gap-4 xl:grid-cols-[330px_1fr_330px]">
           {/* ---------------- LEFT: live event stream ---------------- */}
           <aside className="flex flex-col">
@@ -157,8 +211,9 @@ export default function DashboardPage() {
               </div>
               <div className="mt-3 -mr-2 flex-1 space-y-2 overflow-y-auto pr-2">
                 {events.map((e) => {
+                  const reasoning = generateReasoning(e)
                   const meta = EVENT_META[e.type]
-                  return (
+                  return(
                     <div
                       key={e.id}
                       className="rounded-xl border border-white/10 bg-white/[0.02] p-3 transition hover:border-white/20"
@@ -168,6 +223,9 @@ export default function DashboardPage() {
                           <meta.icon className="size-4" />
                           {e.type}
                         </span>
+                        <p className="text-[10px] text-neutral-400 mt-1">
+                          AI: {generateReasoning(e).insight}
+                        </p>
                         <span
                           className={`rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase ${SEVERITY_TONE[e.severity]}`}
                         >
