@@ -109,7 +109,12 @@ export async function submitComplaintAction(formData: FormData): Promise<SubmitC
         height: image.height ?? null,
       });
     }
-  } catch {
+  } catch (err) {
+    // Was previously swallowed silently — undiagnosable from Vercel's
+    // function logs alone (found on a real deployment where "Could not
+    // upload photos" was the only symptom, with no way to tell whether it
+    // was bad credentials, a wrong bucket/region, or a network failure).
+    console.error("Complaint image upload failed:", err);
     return { ok: false, error: "Could not upload photos. Try again." };
   }
 
@@ -210,7 +215,8 @@ export async function submitComplaintAction(formData: FormData): Promise<SubmitC
     }
 
     return { ok: true, complaintNumber };
-  } catch {
+  } catch (err) {
+    console.error("Complaint submission transaction failed:", err);
     return { ok: false, error: "Could not submit your complaint. Try again." };
   }
 }
