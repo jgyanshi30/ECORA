@@ -12,6 +12,7 @@ address (see the root README's deployment section).
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 
@@ -23,6 +24,8 @@ from app.constants import is_valid_complaint_number
 from app.image_utils import InvalidUploadError, load_and_validate_image, render_annotated_image
 from app.model_loader import get_runner
 from app.schemas import BBox, Detection, HealthResponse, InferResponse
+
+logger = logging.getLogger("ecora.inference")
 
 app = FastAPI(title="Ecora — Inference Service", version="0.1.0")
 
@@ -36,6 +39,10 @@ def health() -> HealthResponse:
     try:
         get_runner()
     except Exception:  # noqa: BLE001 - health check reports load failure, doesn't crash
+        # Was previously swallowed silently, making a "degraded" health check
+        # undiagnosable from logs alone (found on a real deployment where this
+        # was the only symptom). exc_info=True logs the real traceback.
+        logger.exception("Model failed to load")
         model_loaded = False
     return HealthResponse(
         status="ok" if model_loaded else "degraded",
