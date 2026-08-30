@@ -109,8 +109,11 @@ through the last transition now (~7-10s), since it's a real inference call.
 ## Deployment
 
 **For the actual deployment target used for this project (Vercel + Neon +
-Cloudflare R2 + Hugging Face Spaces, chosen for a $0-cost, no-sustained-load
+Backblaze B2 + Hugging Face Spaces, chosen for a $0-cost, no-sustained-load
 hackathon deployment) — copy-pasteable steps in [`DEPLOY.md`](./DEPLOY.md).**
+(Object storage was originally Cloudflare R2, but R2 turned out to require a
+credit card even on its free tier — B2's free tier genuinely doesn't. R2 is
+still supported as a documented fallback in `DEPLOY.md` §2.)
 The rest of this section is the platform-agnostic version, for a different
 or future (real-traffic) deployment target — a single always-on VM running
 the Docker Compose stack as-is, or separately-hosted managed services with

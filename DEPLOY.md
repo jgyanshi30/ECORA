@@ -1,21 +1,28 @@
-# Deploying Ecora (free tier): Vercel + Neon + Cloudflare R2 + Hugging Face Spaces
+# Deploying Ecora (free tier): Vercel + Neon + Backblaze B2 + Hugging Face Spaces
 
 CLAUDE.md §13's current hosting decision, for a hackathon deployment with a
 hard $0 constraint and no sustained load. This is the copy-pasteable
 version — every architecture decision it depends on (synchronous inference,
-no queue/worker, R2-compatible storage config, Vercel `maxDuration`) is
+no queue/worker, B2-compatible storage config, Vercel `maxDuration`) is
 already built and verified; see `PROGRESS.md` for what that verification
 covered. Nothing below requires further engineering judgment calls — paste
 in credentials, follow the steps, deploy.
 
+**Object storage is Backblaze B2, not Cloudflare R2.** R2 was the original
+target but turned out to require a credit card on file even for its free
+tier (confirmed against R2's own community forum, contradicting its
+marketing copy) — a hard blocker under this project's $0-with-no-card
+constraint. B2's free 10GB tier genuinely requires no card. The code still
+supports R2 (§2 below documents both) in case that changes.
+
 None of these accounts were created or tested end-to-end during this
 project's own build (no credentials were available to do so) — every step
 below is grounded in each platform's current official documentation, and
-the *code* changes it depends on (R2 checksum compatibility, `maxDuration`)
-were verified locally against real MinIO/real inference. The **first real
-deploy is the first time this exact path runs against real Neon/R2/HF
-Spaces** — budget time for at least one round of "paste a typo'd env var,
-watch it fail, fix it" the first time through.
+the *code* changes it depends on (storage-provider checksum compatibility,
+`maxDuration`) were verified locally against real MinIO/real inference. The
+**first real deploy is the first time this exact path runs against real
+Neon/B2/HF Spaces** — budget time for at least one round of "paste a
+typo'd env var, watch it fail, fix it" the first time through.
 
 ## 1. Database — Neon
 
@@ -68,18 +75,87 @@ watch it fail, fix it" the first time through.
    nothing runs these for you.)
 5. Set `DATABASE_URL` in Vercel to the **pooled** connection string.
 
-## 2. Object storage — Cloudflare R2
+## 2. Object storage — Backblaze B2 (primary), Cloudflare R2 (still supported)
+
+### Option A — Backblaze B2 (recommended: no card required)
+
+1. Create a free Backblaze account at
+   [backblaze.com/sign-up/cloud-storage](https://www.backblaze.com/sign-up/cloud-storage)
+   — the free tier (10GB storage, 1GB/day download) genuinely requires no
+   credit card, unlike R2 (see below).
+2. Create a bucket (B2 dashboard → Buckets → Create a Bucket). Buckets are
+   **private** by default — leave it that way; this app only ever serves
+   images via signed URLs (CLAUDE.md §0), never a public bucket path.
+3. Create an **Application Key** (B2 dashboard → Application Keys → Add a
+   New Application Key) scoped to that bucket, with Read and Write
+   capabilities. This gives you a **keyID** (→ `STORAGE_ACCESS_KEY`) and an
+   **applicationKey** (→ `STORAGE_SECRET_KEY`) — save both, the secret is
+   only shown once. (Note: this is a B2 *Application Key*, not your B2
+   *account*'s master key — B2's own docs require the scoped key for API
+   access; the master key can't be used directly.)
+4. Find your bucket's **S3 Endpoint** — shown right on the bucket's detail
+   page in the B2 dashboard, in the form `s3.<region-code>.backblazeb2.com`
+   (e.g. `s3.us-west-004.backblazeb2.com`). **The region code is embedded in
+   that hostname** — B2 has no separate "region" setting to look up
+   elsewhere; read it off the endpoint string itself.
+5. Set these in Vercel (replacing the MinIO-shaped local-dev values):
+   ```
+   STORAGE_ENDPOINT=https://s3.<region-code>.backblazeb2.com
+   STORAGE_BUCKET=<your bucket name>
+   STORAGE_ACCESS_KEY=<the keyID>
+   STORAGE_SECRET_KEY=<the applicationKey>
+   STORAGE_REGION=<region-code>
+   ```
+   **This is a real, concrete difference from R2, not a cosmetic one:**
+   `STORAGE_REGION` here is the **actual region code from your endpoint**
+   (e.g. `us-west-004`), *not* the literal string `auto` R2 uses — B2 is a
+   real-region provider (an account is pinned to one region; you can't
+   create buckets outside it), whereas R2 has no regions at all. Using
+   `auto` against B2 would produce a SigV4 signature-scope mismatch.
+6. **Checksum compatibility — researched, not assumed to carry over from
+   R2:** the same `aws-sdk` v3 "flexible checksums" issue that affects R2
+   (client default `WHEN_SUPPORTED` attaches a trailing CRC32 checksum to
+   every `PutObject`) turned out to have affected B2 too — B2 rejected the
+   `x-amz-checksum-crc32` header with "Unsupported header" errors in
+   multiple independent reports from Jan-Mar 2025. **Backblaze fixed this
+   server-side in July 2025**, so current B2 accounts should accept the
+   checksum header fine. `lib/storage/s3.ts` still sets
+   `requestChecksumCalculation: "WHEN_REQUIRED"` unconditionally — it's a
+   strict subset of the SDK default (only sends a checksum when an
+   operation strictly mandates one), so it can't regress B2 either way,
+   fixed or not. **You don't need to do anything for this** — it's already
+   in the code — but if you ever see an "Unsupported header" upload error
+   against B2, it means either this setting got reverted or you're on
+   unusually old B2-side infrastructure; check the setting first.
+7. `forcePathStyle` is already handled correctly and needed no change for
+   B2: it's on whenever `STORAGE_ENDPOINT` is set, and B2's own S3-compatible
+   API docs confirm it supports specifying the bucket name in the path (in
+   addition to the hostname), so path-style addressing works against B2.
+8. Signed URLs (`getSignedGetUrl`) use the same configured client for both
+   writing and reading. B2's own help docs confirm the S3-compatible API
+   supports pre-signed URLs and v4-only signatures (matching what
+   `@aws-sdk/s3-request-presigner` generates) — but this wasn't separately
+   re-verified against a real B2 bucket (no account was available during
+   this build). **This is the first real thing to test on your first
+   deploy**: upload a complaint photo and confirm the citizen
+   complaint-detail page actually loads it via the signed URL, not just
+   that the upload itself succeeds.
+
+### Option B — Cloudflare R2 (still supported, needs a card)
+
+R2's free tier requires a credit card on file (confirmed against R2's own
+community forum — this contradicts R2's marketing copy, which is why B2 is
+now the primary recommendation above). If you have a card and prefer R2
+anyway, the code path is unchanged from before:
 
 1. Create a free Cloudflare account, then an R2 bucket (R2 dashboard →
-   Create bucket). Name it whatever you like — `STORAGE_BUCKET` below
-   just has to match.
+   Create bucket).
 2. Create an R2 API token (R2 dashboard → Manage API tokens → Create API
    token) scoped to that bucket, with read+write (Object Read & Write)
-   permissions. This gives you an **Access Key ID** and **Secret Access
-   Key** — save both, the secret is only shown once.
+   permissions — gives you an Access Key ID and Secret Access Key.
 3. Find your R2 **Account ID** (Cloudflare dashboard sidebar, or the R2
-   overview page) — you need it for the endpoint URL below.
-4. Set these in Vercel (replacing the MinIO-shaped local-dev values):
+   overview page) — needed for the endpoint URL below.
+4. Set these in Vercel:
    ```
    STORAGE_ENDPOINT=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
    STORAGE_BUCKET=<your bucket name>
@@ -87,38 +163,12 @@ watch it fail, fix it" the first time through.
    STORAGE_SECRET_KEY=<the Secret Access Key>
    STORAGE_REGION=auto
    ```
-   **`STORAGE_REGION=auto` is not a placeholder — it's the literal value
-   R2 requires** (R2 doesn't have AWS-style regions; the SDK's SigV4
-   signing needs *some* region string, and `auto` is what R2 documents).
-   Leaving this at the local-dev default (`us-east-1`) will not error
-   loudly — it can produce a signature mismatch on requests instead,
-   which is a worse failure mode to debug blind.
-5. **A real, verified code fix this deployment depends on, already
-   applied** (`lib/storage/s3.ts`): the AWS SDK v3 client, as of its
-   "flexible checksums" change, attaches a trailing CRC32 checksum to
-   every `PutObject` by default (`requestChecksumCalculation:
-   "WHEN_SUPPORTED"`). This is transparent against MinIO and real AWS S3
-   (confirmed — every upload in this project's test suite and local dev
-   exercises the default), but is a documented source of upload failures
-   against Cloudflare R2 specifically. The client is now explicitly
-   configured with `requestChecksumCalculation: "WHEN_REQUIRED"`, which
-   reverts to only sending a checksum when an S3 operation strictly
-   mandates one (plain `PutObject`/`GetObject` don't) — a strict subset
-   of the default, so this cannot regress the MinIO path, and it's the
-   fix R2's own ecosystem documents for `aws-sdk` v3 users. **You don't
-   need to do anything for this** — it's already in the code — but if you
-   ever see upload errors against R2 after modifying `lib/storage/s3.ts`,
-   check this setting first before assuming it's a credentials problem.
-6. `forcePathStyle` is already handled correctly — it's on whenever
-   `STORAGE_ENDPOINT` is set (true for R2), and R2's documentation
-   explicitly supports path-style addressing, so no change needed there.
-7. Signed URLs (`getSignedGetUrl`) use the same configured client for both
-   writing and reading, so they stay consistent automatically — this
-   wasn't separately re-verified against a real R2 bucket (no account
-   available), but it uses the same standard SigV4 presigning R2
-   documents supporting; if a signed URL 403s in production where it
-   worked locally against MinIO, check the clock skew and bucket-policy
-   settings first, not this code.
+   `STORAGE_REGION=auto` is the literal value R2 requires (not a
+   placeholder) — R2 has no AWS-style regions, but the SDK's SigV4 signing
+   needs some region string.
+5. The same `requestChecksumCalculation: "WHEN_REQUIRED"` fix in
+   `lib/storage/s3.ts` covers R2 too (that's the provider it was originally
+   written for) — nothing further to configure.
 
 ## 3. Inference service — Hugging Face Spaces (or Render, documented fallback)
 
@@ -235,7 +285,7 @@ INFERENCE_SERVICE_URL=https://<service-name>.onrender.com
      the first real login, not after.
    - `JWT_SECRET` — another real random value.
    - `STORAGE_ENDPOINT` / `STORAGE_BUCKET` / `STORAGE_ACCESS_KEY` /
-     `STORAGE_SECRET_KEY` / `STORAGE_REGION` — the R2 values from §2.
+     `STORAGE_SECRET_KEY` / `STORAGE_REGION` — the B2 (or R2) values from §2.
    - `NEXT_PUBLIC_MAP_TILE_PROVIDER=osm` (CLAUDE.md §13: OSM-only was the
      resolved decision — leave this as-is, no Mapbox token needed).
    - `INFERENCE_SERVICE_URL` — from §3 above.
