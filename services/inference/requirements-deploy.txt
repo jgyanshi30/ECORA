@@ -1,0 +1,15 @@
+# For Dockerfile builds only (HF Spaces / Render deployment) — the ONNX
+# runtime path exclusively. Deliberately excludes `ultralytics` (and the
+# large `torch` it pulls in): app/model_loader.py only imports the .pt
+# runner's module when YOLO_RUNTIME=pt, which the deployed image never sets
+# (see Dockerfile), so that dependency would just be dead weight in a
+# free-tier image. Local dev keeps using the full requirements.txt, which
+# still supports both runtimes for parity with the .pt path's own tests.
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart>=0.0.12
+pillow>=11.0
+numpy>=2.0
+pydantic-settings>=2.6
+onnxruntime>=1.19
+onnx>=1.17

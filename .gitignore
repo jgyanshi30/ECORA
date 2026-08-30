@@ -1,0 +1,37 @@
+# dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# build output
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# model weights (large binaries — distribute separately / via release asset or LFS)
+services/inference/models/*.pt
+services/inference/models/*.onnx
+!services/inference/models/.gitkeep
+
+# generated inference output (annotated images written locally in dev)
+services/inference/results/
+.pytest_cache/
+
+# logs / os
+*.log
+.DS_Store
+Thumbs.db
+
+# internal build-process docs — not meant for the shared/public repo
+/CLAUDE.md
+/PROGRESS.md
+apps/web/CLAUDE.md
+apps/web/AGENTS.md
