@@ -1,0 +1,13 @@
+# Model weights and other binaries — never let any git client apply
+# line-ending conversion (CRLF<->LF) to these, regardless of a local
+# core.autocrlf setting. A silent conversion on a binary file corrupts it
+# without any error at commit/push time — the failure only shows up later
+# as a load error (e.g. onnxruntime's "Protobuf parsing failed").
+*.onnx binary
+*.pt binary
+*.pth binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.ico binary
